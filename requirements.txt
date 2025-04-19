@@ -1,0 +1,9 @@
+aiohttp
+aiomultiprocess
+tqdm
+transformers
+torch
+pytest
+pyrogram
+tgcrypto
+
