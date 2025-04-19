@@ -22,9 +22,17 @@ def _embed_batch(texts: List[str]):
     return embed(texts)
 
 
-def run(limit: int = 10, group: str | None = None) -> List[Tuple[float, float]]:
+def split_into_batches(texts: List[str], num_batches: int) -> List[List[str]]:
+    batch_size = (len(texts) + num_batches - 1) // num_batches  # округление вверх
+    return [texts[i : i + batch_size] for i in range(0, len(texts), batch_size)]
+
+
+def run(limit: int = 10, group: str | None = None):
     mp.set_start_method("fork")
     texts = _collect_texts(limit, group)
+    batches = split_into_batches(texts, num_batches=os.cpu_count())
     with Pool() as pool:
-        coords, labels = pool.apply(_embed_batch, (texts,))
-    return coords, labels
+        results = pool.map(_embed_batch, batches)
+    all_coords = [coord for batch in results for coord in batch[0]]
+    all_texts = [text for batch in results for text in batch[1]]
+    return all_coords, all_texts
