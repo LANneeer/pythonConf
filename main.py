@@ -4,7 +4,9 @@ import importlib
 import time
 from collections.abc import Sequence
 from typing import List, Tuple
-import matplotlib.pyplot as plt
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
 from tqdm import tqdm
 
 PIPELINES = {
@@ -14,51 +16,48 @@ PIPELINES = {
 }
 
 
-def visualize(coords: List[Tuple[float, float]], labels: List[str]):
-    xs, ys = zip(*coords)
-    fig, ax = plt.subplots(figsize=(10, 7))
-    scatter = ax.scatter(xs, ys, c=range(len(coords)), cmap="plasma", s=60, alpha=0.8)
+def visualize(
+    coords: Sequence[Tuple[float, float]],
+    labels: Sequence[str],
+    *,
+    title: str = "t‑SNE Embeddings of Telegram Messages",
+    marker_size: int = 10,
+    color_scale: str = "Plasma",
+):
+    if len(coords) == 0:
+        raise ValueError("coords не должен быть пустым")
+    if len(coords) != len(labels):
+        raise ValueError("coords и labels должны быть одинаковой длины")
 
-    annot = ax.annotate(
-        "",
-        xy=(0, 0),
-        xytext=(10, 10),
-        textcoords="offset points",
-        bbox=dict(boxstyle="round", fc="w"),
-        arrowprops=dict(arrowstyle="->"),
+    xs, ys = np.array(coords).T
+    df = {
+        "x": xs,
+        "y": ys,
+        "idx": np.arange(len(coords)),
+        "label": labels,
+    }
+
+    fig = px.scatter(
+        df,
+        x="x",
+        y="y",
+        color="idx",
+        color_continuous_scale=color_scale,
+        hover_name="label",
+        height=650,
+        width=900,
     )
-    annot.set_visible(False)
 
-    def update_annot(ind):
-        index = ind["ind"][0]
-        pos = scatter.get_offsets()[index]
-        annot.xy = pos
-        text = labels[index][:80].replace("\n", " ") + (
-            "..." if len(labels[index]) > 80 else ""
-        )
-        annot.set_text(text)
-        annot.get_bbox_patch().set_alpha(0.9)
+    fig.update_traces(marker=dict(size=marker_size, opacity=0.8, line=dict(width=0)))
+    fig.update_layout(
+        title=title,
+        xaxis_title="x",
+        yaxis_title="y",
+        template="plotly_white",
+        coloraxis_showscale=False,
+    )
 
-    def on_hover(event):
-        vis = annot.get_visible()
-        if event.inaxes == ax:
-            cont, ind = scatter.contains(event)
-            if cont:
-                update_annot(ind)
-                annot.set_visible(True)
-                fig.canvas.draw_idle()
-            elif vis:
-                annot.set_visible(False)
-                fig.canvas.draw_idle()
-
-    fig.canvas.mpl_connect("motion_notify_event", on_hover)
-
-    ax.set_title("t‑SNE Embeddings of Telegram Messages")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.grid(True)
-    plt.tight_layout()
-    plt.show()
+    fig.show()
 
 
 def main():

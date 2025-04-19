@@ -1,22 +1,51 @@
 import asyncio
 from aiohttp import ClientSession
-from tqdm.asyncio import tqdm
-from model import infer
+import requests
+from tqdm.asyncio import tqdm as tqdm_async
+from tqdm import tqdm as tqdm_sync
+
+FAKER_URL = "https://fakerapi.it/api/v1/texts"
+MAX_BATCH = 1000
 
 
-async def fetch_fake_texts(n: int):
+async def fetch_fake_texts_async(n: int):
+    texts = []
+    batches = (n + MAX_BATCH - 1) // MAX_BATCH
+
     async with ClientSession() as sess:
-        url = "https://loripsum.net/api/1/short/plaintext"
 
-        async def one():
-            async with sess.get(url) as r:
-                return await r.text()
+        async def fetch_batch(batch_size: int):
+            params = {"_quantity": batch_size, "_characters": 120}
+            async with sess.get(FAKER_URL, params=params) as r:
+                r.raise_for_status()
+                data = await r.json()
+                return [item["content"] for item in data["data"]]
 
-        tasks = [asyncio.create_task(one()) for _ in range(n)]
-        return await tqdm.gather(*tasks, desc="download", total=n)
+        tasks = [
+            asyncio.create_task(fetch_batch(min(MAX_BATCH, n - i * MAX_BATCH)))
+            for i in range(batches)
+        ]
+
+        results = await tqdm_async.gather(*tasks, desc="download", total=len(tasks))
+        for batch in results:
+            texts.extend(batch)
+
+    return texts[:n]
 
 
-async def run(n: int):
-    texts = await fetch_fake_texts(n)
-    preds = [infer(t) for t in tqdm(texts, desc="infer (sync)")]
-    return preds
+def fetch_fake_texts(n: int):
+    """
+    Синхронная загрузка n фейковых текстов с fakerapi.it (requests)
+    """
+    texts = []
+    batches = (n + MAX_BATCH - 1) // MAX_BATCH
+
+    for i in tqdm_sync(range(batches), desc="download"):
+        qty = min(MAX_BATCH, n - i * MAX_BATCH)
+        params = {"_quantity": qty, "_characters": 120}
+        r = requests.get(FAKER_URL, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        texts.extend([item["content"] for item in data["data"]])
+
+    return texts[:n]

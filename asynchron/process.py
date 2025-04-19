@@ -2,14 +2,17 @@ import asyncio
 from typing import List
 
 from telegram.app import TelegramBot
+from misc import fetch_fake_texts_async
 from model import embed
 
 
 async def _collect_texts(limit: int, group: str | None) -> List[str]:
-    bot = TelegramBot(msg_count=limit, group=group or "")
-    async with bot.app:
-        msgs = await bot.parse()
-    return [text for _, _, text in msgs]
+    # bot = TelegramBot(msg_count=limit, group=group or "")
+    # async with bot.app:
+    #     msgs = await bot.parse()
+    # return [text for _, _, text in msgs]
+    texts = await fetch_fake_texts_async(limit)
+    return texts
 
 
 async def run(limit: int = 10, group: str | None = None):

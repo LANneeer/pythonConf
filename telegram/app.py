@@ -47,3 +47,33 @@ class TelegramBot:
 
             messages.append((msg.date, sender, content))
         return messages
+
+    def sync_parse(self) -> List:
+        messages = []
+
+        for msg in self.app.get_chat_history(self.group, limit=self.limit):
+            if msg.from_user:
+                sender = msg.from_user.first_name
+            elif msg.sender_chat:
+                sender = msg.sender_chat.title
+            else:
+                sender = "Unknown"
+
+            if msg.text:
+                content = msg.text
+            elif msg.caption:
+                content = msg.caption
+            elif msg.photo:
+                content = "📷 Фото"
+            elif msg.video:
+                content = "🎥 Видео"
+            elif msg.document:
+                content = f"📎 Документ: {msg.document.file_name}"
+            elif msg.sticker:
+                content = f"💬 Стикер: {msg.sticker.emoji or '[sticker]'}"
+            else:
+                content = "[неизвестный тип сообщения]"
+
+            messages.append((msg.date, sender, content))
+
+        return messages
